@@ -1,3 +1,0 @@
-O meu jogo ainda falta corrigir um erro no código, não está funcionando colocar a dificuldade, estou planejando em polir mais o menu do jogo e adicionar sons no jogo e outras coisas.
-
--Luiz Felipe
