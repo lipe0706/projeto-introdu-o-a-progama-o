@@ -17,7 +17,7 @@ pygame.init()
 tela = pygame.display.set_mode(TAMANHO_JANELA)
 pygame.display.set_caption('Cobra Rush')
 
-fonte = pygame.font.SysFont('pressstart2p', 25)
+fonte = pygame.font.SysFont('pressstart2p', 20)
 
 PRETO = (0, 0, 0)
 VERDE = (0, 255, 0)
@@ -91,7 +91,7 @@ def menu_inicial():
                     quit()
 
 def menu_configuracoes():
-    global velocidade
+    global velocidade, range_obstaculos
     tela_config = pygame.image.load('c:/Users/kauã/OneDrive/Área de Trabalho/Projeto IP/config.png')
     tela_config = pygame.transform.scale(tela_config, TAMANHO_JANELA)
     tela.blit(tela_config, (0, 0))
@@ -117,20 +117,42 @@ def menu_configuracoes():
             if evento.type == KEYDOWN:
                 if evento.key == K_1:
                     velocidade = 10
+                    range_obstaculos = 10
                     menu_inicial()
                     return
                 if evento.key == K_2:
                     velocidade = 15
+                    range_obstaculos = 20
                     menu_inicial()
                     return
                 if evento.key == K_3:
                     velocidade = 20
+                    range_obstaculos = 30
                     menu_inicial()
                     return
                 if evento.key == K_4:
                     return
 
+def ler_pontuacao_mais_alta():
+    try:
+        with open('high_score.txt', 'r') as arquivo:
+            return int(arquivo.read())
+    except FileNotFoundError:
+        return 0
+
+def escrever_pontuacao_mais_alta(pontuacao):
+    with open('high_score.txt', 'w') as arquivo:
+        arquivo.write(str(pontuacao))
+
+def atualizar_pontuacao_mais_alta(pontuacao):
+    pontuacao_mais_alta = ler_pontuacao_mais_alta()
+    if pontuacao > pontuacao_mais_alta:
+        escrever_pontuacao_mais_alta(pontuacao)
+        return True
+    return False
+
 velocidade = 15
+range_obstaculos = 20
 menu_inicial()
 
 pos_cobra = [(250, 50), (260, 50), (270, 50)]
@@ -143,6 +165,17 @@ superficie_cobra.fill(VERDE)
 
 superficie_maca = pygame.Surface((TAMANHO_PIXEL, TAMANHO_PIXEL))
 superficie_maca.fill(VERMELHO)
+
+obstaculos = []
+for _ in range(range_obstaculos):
+    obstaculos.append(posicao_aleatoria())
+
+macadaourada_ativa = False
+valor_macadaourada = 5
+chance_macadaourada = 0.1
+tempo_macadaourada = 5000
+superficie_macadaourada = pygame.Surface((TAMANHO_PIXEL, TAMANHO_PIXEL))
+superficie_macadaourada.fill((255, 215, 0))
 
 while True:
     pygame.time.Clock().tick(velocidade)
@@ -169,18 +202,33 @@ while True:
 
     if nova_cabeca == pos_maca:
         som_efeito.play()
-        pontuacao += 1
+        if macadaourada_ativa:
+            pontuacao += valor_macadaourada
+        else:
+            pontuacao += 1
         pos_maca = posicao_aleatoria()
+        if random.random() < chance_macadaourada:
+            macadaourada_ativa = True
+            tempo_macadaourada_inicio = pygame.time.get_ticks()
     else:
         pos_cobra.pop()
 
-    if nova_cabeca in pos_cobra[1:] or not (0 <= nova_cabeca[0] < TAMANHO_JANELA[0] and 0 <= nova_cabeca[1] < TAMANHO_JANELA[1]):
+    if macadaourada_ativa and pygame.time.get_ticks() - tempo_macadaourada_inicio > tempo_macadaourada:
+        macadaourada_ativa = False
+
+    if (nova_cabeca in pos_cobra[1:] or 
+        not (0 <= nova_cabeca[0] < TAMANHO_JANELA[0] and 0 <= nova_cabeca[1] < TAMANHO_JANELA[1]) or 
+        nova_cabeca in obstaculos):
         som_derrota.play()
         if tela_game_over(pontuacao):
             pos_cobra = [(250, 50), (260, 50), (270, 50)]
             direcao_cobra = K_LEFT
             pontuacao = 0
             pos_maca = posicao_aleatoria()
+            macadaourada_ativa = False
+            obstaculos = []
+            for _ in range(range_obstaculos):
+                obstaculos.append(posicao_aleatoria())
 
     for i, pos in enumerate(pos_cobra):
         tela.blit(superficie_cobra, pos)
@@ -188,6 +236,18 @@ while True:
             pygame.draw.circle(tela, BRANCO, (pos[0] + 3, pos[1] + 3), 2)
             pygame.draw.circle(tela, BRANCO, (pos[0] + 7, pos[1] + 3), 2)
 
-    tela.blit(superficie_maca, pos_maca)
+    if macadaourada_ativa:
+        tela.blit(superficie_macadaourada, pos_maca)
+    else:
+        tela.blit(superficie_maca, pos_maca)
+
+    for obstaculo in obstaculos:
+        pygame.draw.rect(tela, PRETO, (obstaculo[0], obstaculo[1], TAMANHO_PIXEL, TAMANHO_PIXEL))
+
     exibir_pontuacao(pontuacao)
+    texto_high_score = fonte.render(f"High Score: {ler_pontuacao_mais_alta()}", True, BRANCO)
+    tela.blit(texto_high_score, (10, 40))
     pygame.display.update()
+
+    if pontuacao > ler_pontuacao_mais_alta():
+        atualizar_pontuacao_mais_alta(pontuacao)
